@@ -3,6 +3,8 @@ package com.cjq.chenaiagent.app;
 import com.cjq.chenaiagent.advisor.MyLoggerAdvisor;
 import com.cjq.chenaiagent.advisor.ReReadingAdvisor;
 import com.cjq.chenaiagent.chatmemory.FileBasedChatMemory;
+import com.cjq.chenaiagent.rag.LoveAppRagCustomAdvisorFactory;
+import com.cjq.chenaiagent.rag.QueryRewriter;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
@@ -104,19 +106,34 @@ public class LoveApp {
     // RetrievalAugmentationAdvisor的RAG！
     @Resource
     private Advisor loveAppRagCloudAdvisor;
+    @Resource
+    private VectorStore pgVectorVectorStore;
 
+    @Resource
+    private QueryRewriter queryRewriter;
+
+
+    // 这个RAG有三种，第一种就是用内存当自己的向量数据库，然后去查并根据Advisor进行向量数据库的检索！还有一种是基于PGVectorVectorStore来实现的！所有RAG都是这个套路，包括阿里云！
+    // advisors 就是拦截器！
+    // QuestionAnswerAdvisor：一键套餐，“拿 VectorStore 直接用”
+    // RetrievalAugmentationAdvisor：自助餐/流程编排，“每一步都能换组件、加策略”
     public String doChatWithRag(String message, String chatId) {
+        String rewriteMessage = queryRewriter.doQueryRewrite(message); // 查询重写！
         ChatResponse chatResponse = chatClient
                 .prompt()
-                .user(message)
+                .user(rewriteMessage)
                 .advisors(spec -> spec.param(CHAT_MEMORY_CONVERSATION_ID_KEY, chatId)
                         .param(CHAT_MEMORY_RETRIEVE_SIZE_KEY, 10))
 
                 .advisors(new MyLoggerAdvisor())
                 // RAG+向量数据库！  QuestionAnswerAdvisor是一个简单的问答拦截器实现
-//                .advisors(new QuestionAnswerAdvisor(loveAppVectorStore))
+                .advisors(new QuestionAnswerAdvisor(loveAppVectorStore))  // 默认内存！
                 // 基于阿里云知识库服务器的RAG检索！
-                .advisors(loveAppRagCloudAdvisor)
+//                .advisors(loveAppRagCloudAdvisor)
+                // 应用RAG 基于PGVectorVectorStore向量存储来检索！
+//                .advisors(new QuestionAnswerAdvisor(pgVectorVectorStore))
+                // 自定义RAG  文档查询器+上下文增强！
+//                .advisors(LoveAppRagCustomAdvisorFactory.createLoveAppRagCustomAdvisor(loveAppVectorStore,"单身"))
                 .call()
                 .chatResponse();
         String content = chatResponse.getResult().getOutput().getText();

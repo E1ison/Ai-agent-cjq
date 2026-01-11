@@ -38,10 +38,12 @@ public class LoveAppDocumentLoader {
                 // springai document reader依赖。将文件名作为额外信息来保存到document！
                 // 官方文档来读取！示例代码！
                 String filename = resource.getFilename();
+                String status = filename.substring(filename.length() - 6, filename.length() - 4);
                 MarkdownDocumentReaderConfig config = MarkdownDocumentReaderConfig.builder()
                         .withHorizontalRuleCreateDocument(true)
                         .withIncludeCodeBlock(false)
                         .withIncludeBlockquote(false)
+                        .withAdditionalMetadata("status", status)
                         .withAdditionalMetadata("filename", filename) // 额外元信息  方便后续搜索
                         .build();
                 MarkdownDocumentReader markdownDocumentReader = new MarkdownDocumentReader(resource, config);
