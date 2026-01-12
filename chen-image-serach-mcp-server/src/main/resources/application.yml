@@ -1,0 +1,8 @@
+spring:
+  application:
+    name: chen-image-serach-mcp-server
+  profiles:
+    # 本地传输
+    active: stdio
+server:
+  port: 8127

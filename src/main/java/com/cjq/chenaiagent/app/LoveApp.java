@@ -17,8 +17,10 @@ import org.springframework.ai.chat.memory.InMemoryChatMemory;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.tool.ToolCallback;
+import org.springframework.ai.tool.ToolCallbackProvider;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.stereotype.Component;
+import reactor.core.publisher.Flux;
 
 import java.util.List;
 
@@ -84,6 +86,29 @@ public class LoveApp {
     // 测试结构化输出！
     record LoveReport(String title, List<String> suggestions) {
     }
+
+
+
+    /**
+     * Ai基本聊天（SSE流式传输）
+     * @param message
+     * @param chatId
+     * @return
+     */
+    public Flux<String> doChatByStream(String message, String chatId) {
+        Flux<String> content = chatClient
+                .prompt()
+                .user(message)
+                // CHAT_MEMORY_CONVERSATION_ID_KEY取当前Id的上下文，CHAT_MEMORY_RETRIEVE_SIZE_KEY获取多少历史上下文条数！
+                .advisors(spec -> spec.param(CHAT_MEMORY_CONVERSATION_ID_KEY, chatId)
+                        .param(CHAT_MEMORY_RETRIEVE_SIZE_KEY, 10))
+                // SSE流式，call改成stream
+                .stream()
+                .content();
+        return content;
+    }
+
+
 
     public LoveReport doChatWithReport(String message, String chatId) {
         LoveReport loveReport = chatClient
@@ -164,5 +189,28 @@ public class LoveApp {
         log.info("content: {}", content);
         return content;
     }
+
+
+
+
+    // 自动获取json里面配置的MCP服务！
+    @Resource
+    private ToolCallbackProvider toolCallbackProvider;
+
+    public String doChatWithMCP(String message, String chatId) {
+        ChatResponse chatResponse = chatClient
+                .prompt()
+                .user(message)
+                .advisors(spec -> spec.param(CHAT_MEMORY_CONVERSATION_ID_KEY, chatId)
+                        .param(CHAT_MEMORY_RETRIEVE_SIZE_KEY, 10))
+                .advisors(new MyLoggerAdvisor()) // 日志
+                .tools(toolCallbackProvider)
+                .call()
+                .chatResponse();
+        String content = chatResponse.getResult().getOutput().getText();
+        log.info("content: {}", content);
+        return content;
+    }
+
 
 }

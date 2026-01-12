@@ -1,6 +1,7 @@
 ### CUSTOM
 application-local.yml
 tmp
+src/main/resources/mcp-servers.json
 
 HELP.md
 target/
